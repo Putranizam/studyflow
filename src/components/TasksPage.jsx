@@ -1,124 +1,228 @@
 import { useState, useMemo } from "react";
+import { SlidersHorizontal, ArrowUpDown } from "lucide-react";
 import { isToday, isOverdue, isUpcoming } from "../utils/date";
 import TaskItem from "./TaskItem";
 import QuickAddTask from "./QuickAddTask";
 
-const FILTERS = ["All", "Today", "Upcoming", "Overdue", "Completed"];
-const PRIORITIES = ["All", "High", "Medium", "Low"];
+const STATUS_FILTERS = ["All", "Today", "Upcoming", "Overdue", "Completed"];
+const PRIORITY_FILTERS = ["All", "High", "Medium", "Low"];
+const CATEGORY_FILTERS = ["All", "Study", "Assignment", "Personal", "Other"];
 const SORTS = ["Due Date", "Priority", "Created"];
-const CATEGORIES = ["All", "Study", "Assignment", "Personal", "Other"];
-
 const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
 
-export default function TasksPage({ tasks, addTask, toggleTask, deleteTask, updateTask }) {
-  const [filter, setFilter] = useState("All");
+export default function TasksPage({ tasks, addTask, toggleTask, deleteTask }) {
+  const [status,   setStatus]   = useState("All");
   const [priority, setPriority] = useState("All");
   const [category, setCategory] = useState("All");
-  const [sort, setSort] = useState("Due Date");
+  const [sort,     setSort]     = useState("Due Date");
+  const [showSub,  setShowSub]  = useState(false);
 
   const filtered = useMemo(() => {
     let list = [...tasks];
 
-    // Status filter
-    if (filter === "Today")     list = list.filter((t) => isToday(t.dueDate));
-    if (filter === "Upcoming")  list = list.filter((t) => isUpcoming(t.dueDate) && !t.done);
-    if (filter === "Overdue")   list = list.filter((t) => isOverdue(t.dueDate) && !t.done);
-    if (filter === "Completed") list = list.filter((t) => t.done);
+    if (status === "Today")     list = list.filter((t) => isToday(t.dueDate));
+    if (status === "Upcoming")  list = list.filter((t) => isUpcoming(t.dueDate) && !t.done);
+    if (status === "Overdue")   list = list.filter((t) => isOverdue(t.dueDate) && !t.done);
+    if (status === "Completed") list = list.filter((t) => t.done);
+    if (priority !== "All")     list = list.filter((t) => t.priority === priority.toLowerCase());
+    if (category !== "All")     list = list.filter((t) => t.category === category);
 
-    // Priority filter
-    if (priority !== "All") list = list.filter((t) => t.priority === priority.toLowerCase());
-
-    // Category filter
-    if (category !== "All") list = list.filter((t) => t.category === category);
-
-    // Sort
-    if (sort === "Priority")   list.sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
-    if (sort === "Due Date")   list.sort((a, b) => (a.dueDate || "9999") < (b.dueDate || "9999") ? -1 : 1);
-    if (sort === "Created")    list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    if (sort === "Priority") list.sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
+    if (sort === "Due Date") list.sort((a, b) => (a.dueDate || "9999") < (b.dueDate || "9999") ? -1 : 1);
+    if (sort === "Created")  list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
     return list;
-  }, [tasks, filter, priority, category, sort]);
+  }, [tasks, status, priority, category, sort]);
 
   const overdue   = filtered.filter((t) => isOverdue(t.dueDate) && !t.done);
   const pending   = filtered.filter((t) => !t.done && !isOverdue(t.dueDate));
   const completed = filtered.filter((t) => t.done);
 
+  const hasSubFilter = priority !== "All" || category !== "All";
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
+
+      {/* ── Quick add ── */}
       <QuickAddTask onAdd={addTask} showFull />
 
-      {/* Filter bar */}
-      <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4 md:p-6 space-y-3">
-        {/* Status tabs */}
-        <div className="flex gap-1 bg-white/5 rounded-xl p-1 w-full md:w-fit overflow-x-auto">
-          {FILTERS.map((f) => (
-            <button key={f} onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-150 whitespace-nowrap
-                ${filter === f ? "text-white" : "text-white/35 hover:text-white/60"}`}
-              style={filter === f ? { background: "linear-gradient(135deg,#7c3aed,#2563eb)" } : {}}>
-              {f}
-            </button>
-          ))}
-        </div>
+      {/* ── Filter bar ── */}
+      <div className="space-y-3">
 
-        {/* Secondary filters */}
-        <div className="flex flex-col md:flex-row md:items-center gap-4">
-          <FilterGroup label="Priority" options={PRIORITIES} value={priority} onChange={setPriority} />
-          <FilterGroup label="Category" options={CATEGORIES} value={category} onChange={setCategory} />
-          <div className="w-full md:w-auto mt-2 md:mt-0 ml-0 md:ml-auto flex items-center gap-2">
-            <span className="text-xs md:text-sm text-white/30">Sort:</span>
-            <select value={sort} onChange={(e) => setSort(e.target.value)}
-              className="w-full md:w-auto text-xs md:text-sm bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-white/60 outline-none cursor-pointer">
-              {SORTS.map((s) => <option key={s} value={s} className="bg-[#1a1a2e]">{s}</option>)}
+        {/* Row 1: status tabs + sort + sub-filter toggle */}
+        <div className="flex items-center gap-2">
+          {/* Status — horizontal scroll on mobile */}
+          <div className="flex-1 overflow-x-auto scrollbar-none">
+            <div className="flex gap-1 w-max">
+              {STATUS_FILTERS.map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setStatus(f)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all duration-150 ${
+                    status === f
+                      ? "bg-violet-600 text-white"
+                      : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60"
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Sort dropdown */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <ArrowUpDown size={13} className="text-zinc-600" />
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              className="text-xs text-zinc-400 bg-transparent outline-none cursor-pointer hover:text-zinc-200 transition-colors"
+              style={{ colorScheme: "dark" }}
+            >
+              {SORTS.map((s) => (
+                <option key={s} value={s} className="bg-zinc-900">{s}</option>
+              ))}
             </select>
           </div>
+
+          {/* Sub-filter toggle */}
+          <button
+            onClick={() => setShowSub((v) => !v)}
+            className={`flex-shrink-0 p-1.5 rounded-lg transition-all duration-150 ${
+              hasSubFilter || showSub
+                ? "bg-violet-600/20 text-violet-400"
+                : "text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800/60"
+            }`}
+            title="More filters"
+          >
+            <SlidersHorizontal size={14} />
+          </button>
         </div>
+
+        {/* Row 2: priority + category (collapsible) */}
+        {showSub && (
+          <div className="flex gap-2 overflow-x-auto scrollbar-none pb-0.5">
+            {/* Priority */}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <span className="text-[11px] text-zinc-600 mr-1">Priority</span>
+              {PRIORITY_FILTERS.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPriority(p)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all duration-150 ${
+                    priority === p
+                      ? "bg-zinc-700 text-white"
+                      : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+
+            <div className="w-px bg-zinc-800 flex-shrink-0" />
+
+            {/* Category */}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <span className="text-[11px] text-zinc-600 mr-1">Category</span>
+              {CATEGORY_FILTERS.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setCategory(c)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all duration-150 ${
+                    category === c
+                      ? "bg-zinc-700 text-white"
+                      : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60"
+                  }`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Task count */}
-      <p className="text-xs text-white/30 px-1">{filtered.length} task{filtered.length !== 1 ? "s" : ""}</p>
+      {/* ── Task count ── */}
+      <p className="text-xs text-zinc-600">
+        {filtered.length} task{filtered.length !== 1 ? "s" : ""}
+        {(priority !== "All" || category !== "All" || status !== "All") && (
+          <button
+            onClick={() => { setStatus("All"); setPriority("All"); setCategory("All"); }}
+            className="ml-2 text-violet-400 hover:text-violet-300 transition-colors"
+          >
+            Clear filters
+          </button>
+        )}
+      </p>
 
-      {/* Sections */}
-      {overdue.length > 0 && (
-        <TaskSection title={`⚠️ Overdue · ${overdue.length}`} titleCls="text-red-400" tasks={overdue} onToggle={toggleTask} onDelete={deleteTask} />
-      )}
-      {pending.length > 0 && (
-        <TaskSection title={`Pending · ${pending.length}`} tasks={pending} onToggle={toggleTask} onDelete={deleteTask} />
-      )}
-      {completed.length > 0 && (
-        <TaskSection title={`Completed · ${completed.length}`} tasks={completed} onToggle={toggleTask} onDelete={deleteTask} />
-      )}
+      {/* ── Task sections ── */}
+      <div className="space-y-6">
+        {overdue.length > 0 && (
+          <TaskSection
+            title="Overdue"
+            count={overdue.length}
+            titleCls="text-red-400"
+            tasks={overdue}
+            onToggle={toggleTask}
+            onDelete={deleteTask}
+          />
+        )}
 
-      {filtered.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-white/10 p-12 text-center">
-          <p className="text-3xl mb-3">📭</p>
-          <p className="text-white/40 text-sm">No tasks match your filters</p>
-        </div>
-      )}
+        {pending.length > 0 && (
+          <TaskSection
+            title="Pending"
+            count={pending.length}
+            tasks={pending}
+            onToggle={toggleTask}
+            onDelete={deleteTask}
+          />
+        )}
+
+        {completed.length > 0 && (
+          <TaskSection
+            title="Completed"
+            count={completed.length}
+            tasks={completed}
+            onToggle={toggleTask}
+            onDelete={deleteTask}
+          />
+        )}
+
+        {filtered.length === 0 && (
+          <div className="py-16 text-center space-y-2">
+            <p className="text-3xl">📭</p>
+            <p className="text-sm text-zinc-600">No tasks match your filters</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function FilterGroup({ label, options, value, onChange }) {
+// ─── Task section ─────────────────────────────────────────────────────────────
+function TaskSection({ title, count, titleCls = "text-zinc-600", tasks, onToggle, onDelete }) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <span className="text-xs md:text-sm text-white/30">{label}:</span>
-      {options.map((o) => (
-        <button key={o} onClick={() => onChange(o)}
-          className={`text-xs md:text-sm px-2.5 py-1 rounded-lg border transition-all duration-150
-            ${value === o ? "border-purple-500/40 bg-purple-500/20 text-white" : "border-white/10 bg-white/5 text-white/40 hover:text-white/70"}`}>
-          {o}
-        </button>
-      ))}
-    </div>
-  );
-}
+    <div className="space-y-0.5">
+      {/* Section header */}
+      <div className="flex items-center gap-2 px-3 mb-2">
+        <span className={`text-xs font-semibold uppercase tracking-wider ${titleCls}`}>
+          {title}
+        </span>
+        <span className="text-[11px] text-zinc-700 font-medium">{count}</span>
+      </div>
 
-function TaskSection({ title, titleCls = "text-white/30", tasks, onToggle, onDelete }) {
-  return (
-    <div className="space-y-2">
-      <p className={`text-xs font-bold uppercase tracking-widest px-1 ${titleCls}`}>{title}</p>
-      {tasks.map((t) => <TaskItem key={t.id} task={t} onToggle={onToggle} onDelete={onDelete} />)}
+      {/* Items — grouped in a subtle container */}
+      <div className="rounded-2xl bg-zinc-900/40 overflow-hidden">
+        {tasks.map((t, i) => (
+          <div key={t.id}>
+            <TaskItem task={t} onToggle={onToggle} onDelete={onDelete} />
+            {i < tasks.length - 1 && (
+              <div className="h-px bg-zinc-800/50 mx-3" />
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

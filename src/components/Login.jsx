@@ -1,27 +1,30 @@
 import { useState } from "react";
+import { Eye, EyeOff, Loader2, AlertTriangle } from "lucide-react";
 import AuthLayout from "./AuthLayout";
 
-// ─── tiny helpers ─────────────────────────────────────────────────────────────
+// ─── helpers ──────────────────────────────────────────────────────────────────
 function inputCls(hasError) {
   return [
-    "w-full rounded-xl border bg-white/5 px-4 py-3 text-sm text-white",
-    "placeholder-white/20 outline-none transition-all duration-200 focus:bg-purple-900/10",
+    "w-full rounded-xl border px-4 py-3 text-sm text-white",
+    "bg-zinc-900/50 placeholder-zinc-600 outline-none",
+    "transition-all duration-200 focus:bg-zinc-900/70",
     hasError
-      ? "border-red-500/50 focus:border-red-400"
-      : "border-white/10 focus:border-purple-500/50",
+      ? "border-red-500/40 focus:border-red-400"
+      : "border-zinc-800 focus:border-purple-500",
   ].join(" ");
 }
 
 function Field({ label, error, children }) {
   return (
-    <div className="space-y-1.5">
-      <label className="text-xs font-semibold text-white/40 uppercase tracking-widest">
+    <div className="space-y-2">
+      <label className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-widest">
         {label}
       </label>
       {children}
       {error && (
         <p className="flex items-center gap-1.5 text-xs text-red-400">
-          <span>⚠</span> {error}
+          <AlertTriangle size={12} className="flex-shrink-0" />
+          {error}
         </p>
       )}
     </div>
@@ -30,20 +33,18 @@ function Field({ label, error, children }) {
 
 // ─── component ────────────────────────────────────────────────────────────────
 export default function Login({ setUser, setPage }) {
-  const [form, setForm]       = useState({ identifier: "", password: "" });
-  const [errors, setErrors]   = useState({});
-  const [globalErr, setGlobal] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [showPass, setShowPass] = useState(false);
+  const [form,      setForm]    = useState({ identifier: "", password: "" });
+  const [errors,    setErrors]  = useState({});
+  const [globalErr, setGlobal]  = useState("");
+  const [loading,   setLoading] = useState(false);
+  const [showPass,  setShowPass] = useState(false);
 
-  // live-clear errors on change
   const set = (field) => (e) => {
     setForm((f) => ({ ...f, [field]: e.target.value }));
     setErrors((err) => ({ ...err, [field]: "" }));
     setGlobal("");
   };
 
-  // inline validation
   function validate() {
     const errs = {};
     if (!form.identifier.trim()) errs.identifier = "Username or email is required.";
@@ -58,11 +59,10 @@ export default function Login({ setUser, setPage }) {
 
     setLoading(true);
     await new Promise((r) => setTimeout(r, 380));
-    
+
     const users = JSON.parse(localStorage.getItem("users")) || [];
-    const key = form.identifier.trim().toLowerCase();
-    
-    const user = users.find(
+    const key   = form.identifier.trim().toLowerCase();
+    const user  = users.find(
       (u) =>
         (u.username.toLowerCase() === key || u.email.toLowerCase() === key) &&
         u.password === form.password
@@ -77,8 +77,8 @@ export default function Login({ setUser, setPage }) {
 
     const session = {
       username: user.username,
-      email: user.email,
-      loginAt: new Date().toISOString(),
+      email:    user.email,
+      loginAt:  new Date().toISOString(),
     };
     localStorage.setItem("currentUser", JSON.stringify(session));
     setUser(session);
@@ -89,22 +89,24 @@ export default function Login({ setUser, setPage }) {
   return (
     <AuthLayout>
       <div className="space-y-6">
+
         {/* ── Header ── */}
-        <div className="space-y-1">
-          <h1 className="text-2xl font-black text-white tracking-tight">Welcome back</h1>
-          <p className="text-sm text-white/40">Sign in to continue your study sessions</p>
+        <div className="space-y-1.5">
+          <h1 className="text-2xl font-bold text-white tracking-tight">Welcome back</h1>
+          <p className="text-sm text-zinc-500">Sign in to continue your study sessions</p>
         </div>
 
         {/* ── Global error ── */}
         {globalErr && (
-          <div className="flex items-center gap-3 rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 animate-[fadeIn_0.2s_ease]">
-            <span className="text-red-400 flex-shrink-0">⚠</span>
+          <div className="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3">
+            <AlertTriangle size={15} className="text-red-400 flex-shrink-0" />
             <p className="text-sm text-red-400">{globalErr}</p>
           </div>
         )}
 
         {/* ── Form ── */}
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
+
           {/* Identifier */}
           <Field label="Username or Email" error={errors.identifier}>
             <input
@@ -133,49 +135,54 @@ export default function Login({ setUser, setPage }) {
               <button
                 type="button"
                 onClick={() => setShowPass((s) => !s)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors text-sm select-none"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-300 transition-colors"
                 tabIndex={-1}
+                aria-label={showPass ? "Hide password" : "Show password"}
               >
-                {showPass ? "🙈" : "👁"}
+                {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
               </button>
             </div>
           </Field>
 
           {/* Submit */}
-          <button
-            type="submit"
-            disabled={!isValid || loading}
-            className="w-full py-3 rounded-xl font-bold text-sm text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100 mt-2"
-            style={
-              isValid && !loading
-                ? { background: "linear-gradient(135deg,#7c3aed,#2563eb)", boxShadow: "0 4px 20px rgba(124,58,237,0.4)" }
-                : { background: "rgba(255,255,255,0.08)" }
-            }
-          >
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                </svg>
-                Signing in…
-              </span>
-            ) : (
-              "Sign in"
-            )}
-          </button>
+          <div className="pt-1">
+            <button
+              type="submit"
+              disabled={!isValid || loading}
+              className="
+                w-full py-3 rounded-xl
+                bg-purple-600 hover:bg-purple-500
+                text-sm font-semibold text-white
+                transition-colors duration-200
+                active:scale-[0.98]
+                disabled:opacity-40 disabled:cursor-not-allowed
+                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/50
+              "
+              style={{ boxShadow: isValid && !loading ? "0 4px 24px rgba(139,92,246,0.30)" : "none" }}
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 size={15} className="animate-spin" />
+                  Signing in…
+                </span>
+              ) : (
+                "Sign in"
+              )}
+            </button>
+          </div>
         </form>
 
         {/* ── Switch ── */}
-        <p className="text-center text-sm text-white/30">
+        <p className="text-center text-sm text-zinc-500">
           Don't have an account?{" "}
           <button
             onClick={(e) => { e.preventDefault(); setPage("register"); }}
-            className="text-purple-400 hover:text-purple-300 font-semibold transition-colors"
+            className="text-purple-400 hover:text-purple-300 font-medium transition-colors"
           >
             Create one →
           </button>
         </p>
+
       </div>
     </AuthLayout>
   );
